@@ -1,0 +1,30 @@
+{
+  "start": {
+    "text": "고양이가 다가왔다. 무엇을 할까?",
+    "ascii": "cat",
+    "options": [
+      { "key": "1", "text": "같이 논다", "action": "playAnimation", "next": "play" },
+      { "key": "2", "text": "간식 주기", "action": "feedSnack", "next": "snack" },
+      { "key": "3", "text": "EC2 instances", "action": "feedSnack", "next": "snack" },
+      { "key": "4", "text": "모험 끝내기", "next": "end" }
+    ]
+  },
+  "play": {
+    "text": "고양이: 좋아! 공놀이를 시작했다!",
+    "ascii": "cat",
+    "options": [
+      { "key": "1", "text": "게임 끝", "next": "end" }
+    ]
+  },
+  "snack": {
+    "text": "고양이가 간식을 먹고 행복해한다! 😺",
+    "ascii": "cat",
+    "ending": "HAPPY",
+    "options": []
+  },
+  "end": {
+    "text": "모험이 끝났다! 🐾",
+    "ending": "GOOD",
+    "options": []
+  }
+}
