@@ -2,7 +2,7 @@
 import { createInterface } from "node:readline/promises";
 import dotenv from 'dotenv';
 import { setVPC } from './aws-req/set-vpc.js';
-import { deleteVPC } from './aws-req/del-vpc.js';
+import { deploy3TierRds } from './aws-req/three-tier-rds.js';
 dotenv.config();
 
 import {
@@ -14,7 +14,13 @@ import {
   paginateListObjectsV2,
   GetObjectCommand,
 } from "@aws-sdk/client-s3";
-import { DescribeSecurityGroupsCommand, EC2Client, DescribeVpcsCommand, CreateDefaultVpcCommand } from "@aws-sdk/client-ec2";
+import { 
+  DescribeSecurityGroupsCommand, 
+  EC2Client, 
+} from "@aws-sdk/client-ec2";
+import {
+  RDSClient,
+} from "@aws-sdk/client-rds";
 
 // configuration for AWS SDK
 
@@ -28,7 +34,7 @@ const configuration = { region, credentials };
 //set up client
 const s3Client = new S3Client(configuration);
 const ec2Client = new EC2Client(configuration);
-
+const rdsClient = new RDSClient(configuration);
 //function
 
 export async function s3test() {
@@ -113,11 +119,18 @@ async function main() {
   await setVPC(ec2Client);
   // await deleteVPC(ec2Client);
 }
+
+export const setAwsVpc = async () => {
+  return await setVPC(ec2Client);
+}
+
+export const create3TierRds = async (vpcInfo) => {
+  return await deploy3TierRds(ec2Client, rdsClient, vpcInfo);
+}
+
 // Call a function if this file was run directly. This allows the file
 // to be runnable without running on import.
 // import { fileURLToPath } from "node:url";
 // if (process.argv[1] === fileURLToPath(import.meta.url)) {
 //   s3test();
 // }
-main();
-// ec2test();

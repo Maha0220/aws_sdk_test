@@ -5,34 +5,39 @@
     "options": [
       { "key": "1", "text": "같이 논다", "action": "playAnimation", "next": "play" },
       { "key": "2", "text": "간식 주기", "action": "feedSnack", "next": "snack" },
-      { "key": "3", "text": "AWS 3-tier 구성하기", "action": "feedSnack", "next": "main" },
+      { "key": "3", "text": "AWS 3-tier 구성하기", "next": "main" },
       { "key": "4", "text": "모험 끝내기", "next": "end" }
     ]
   },
   "main": {
     "text": "AWS 3-tier 구성하기",
-    "ascii": "cat2",
+    "ascii": "cat-star",
     "options": [
-      { "key": "1", "text": "vpc 확인", "action": "playAnimation", "next": "play" },
-      { "key": "2", "text": "3-tier 구성하기", "action": "feedSnack", "next": "snack" },
-      { "key": "3", "text": "ssh키 관리", "next": "end" }
+      { "key": "1", "text": "vpc 구성", "action": "setAwsVpc", "next": "main" },
+      { "key": "2", "text": "3-tier 구성하기 (ec2 db)", "action": "feedSnack", "next": "main" },
+      { "key": "3", "text": "3-tier 구성하기 (rds)", "action": "setAws3TierRds", "next": "main" },
+      { "key": "4", "text": "auto scaling 구성하기", "action": "feedSnack", "next": "main" },
+      { "key": "5", "text": "DB 마이그레이션 (ec2 to rds)", "action": "feedSnack", "next": "main" },
+      { "key": "6", "text": "끝내기", "next": "end" }
     ]
   },
   "play": {
     "text": "고양이: 좋아! 공놀이를 시작했다!",
-    "ascii": "cat",
+    "ascii": "cat-ball",
     "options": [
-      { "key": "1", "text": "게임 끝", "next": "end" }
+      { "key": "1", "text": "공을 멀리 차버린다", "next": "end" }
     ]
   },
   "snack": {
     "text": "고양이가 간식을 먹고 행복해한다! 😺",
-    "ascii": "cat",
+    "ascii": "cat-feed",
     "ending": "HAPPY",
-    "options": []
+    "options": [
+      { "key": "1", "text": "가지마...", "next": "end" }
+    ]
   },
   "end": {
-    "text": "모험이 끝났다! 🐾",
+    "text": "고양이가 떠난다! 🐾",
     "ending": "GOOD",
     "options": []
   }
