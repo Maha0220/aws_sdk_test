@@ -107,7 +107,8 @@ export async function setVPC(ec2Client) {
       console.log(`프라이빗 라우팅 테이블 연결 완료: ${privateSubnets[i]}`);
     }
 
-    console.log("✅ 완전한 멀티 AZ VPC 환경 구축 완료!");
+    console.log("✅ 멀티 AZ VPC 환경 구축 완료!");
+    return { vpcId, publicSubnets, privateSubnets };
   } catch (err) {
     console.error("오류 발생:", err);
   }

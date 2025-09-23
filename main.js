@@ -42,8 +42,11 @@ const actions = {
       await new Promise(r => setTimeout(r, 400));
     }
   },
-  feedSnack: () => {
+  feedSnack: async () => {
+    console.clear();
+    console.log(loadAscii("cat"));
     console.log("\n🍪 고양이에게 간식을 줬다!");
+    await new Promise(r => setTimeout(r, 800));
   }
 };
 
@@ -70,6 +73,8 @@ async function play(sceneKey) {
   // 선택지가 없으면 종료
   if (!scene.options || scene.options.length === 0) {
     rl.close();
+    await new Promise(r => setTimeout(r, 800));
+    console.clear();
     return;
   }
 
