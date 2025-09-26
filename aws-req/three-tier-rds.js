@@ -12,18 +12,24 @@ import {
   waitUntilDBInstanceAvailable,
   CreateDBSubnetGroupCommand,
 } from "@aws-sdk/client-rds";
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
 
 import * as dotenv from "dotenv";
 dotenv.config();
 
-// const ec2Client = new EC2Client({
-//   region: process.env.AWS_REGION,
-//   credentials: {
-//     accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-//     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-//   },
-// });
 
+// const ec2Client = new EC2Client({
+  //   region: process.env.AWS_REGION,
+  //   credentials: {
+    //     accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    //     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+    //   },
+    // });
+  const __filename = fileURLToPath(import.meta.url);
+  const __dirname = path.dirname(__filename);
+    
 export async function deploy3TierRds(ec2Client, rdsClient, vpcInfo) {
   try {
 
@@ -125,6 +131,9 @@ export async function deploy3TierRds(ec2Client, rdsClient, vpcInfo) {
         VpcSecurityGroupIds: [dbSg.GroupId],
         DBSubnetGroupName: DBSubnetGroupName,
         PubliclyAccessible: false,
+        MultiAZ: false,                              // 멀티 AZ 여부
+        Port: 3306,
+        DBName: "testdb", 
       })
     );
     console.log("✅ DB 생성 시작:", dbId);
@@ -137,47 +146,11 @@ export async function deploy3TierRds(ec2Client, rdsClient, vpcInfo) {
     // -----------------------
     // 3. EC2 (App)
     // -----------------------
-    const userDataApp = Buffer.from(`#!/bin/bash
-      # 업데이트
-      apt-get update -y
-      apt-get upgrade -y
-
-      # Node.js & npm 설치 (LTS 버전)
-      curl -fsSL https://deb.nodesource.com/setup_16.x | bash -
-      apt-get install -y nodejs git mysql-client
-
-      # 앱 코드 작성
-      cat <<EOF > /home/ubuntu/app.js
-      const http = require('http');
-      const mysql = require('mysql2');
-      const connection = mysql.createConnection({
-        host: "${dbEndpoint}",
-        user: "admin",
-        password: "password1234!",
-      });
-      connection.connect(err => {
-        if (err) {
-          console.error('DB Connection Failed:', err);
-        } else {
-          console.log('Connected to DB');
-        }
-      });
-      const server = http.createServer((req, res) => {
-        connection.query('SELECT NOW() as now', (err, results) => {
-          res.writeHead(200, {'Content-Type': 'text/plain'});
-          if (err) {
-            res.end("DB Error: " + err);
-          } else {
-            res.end("App Tier Connected! Time: " + results[0].now);
-          }
-        });
-      });
-      server.listen(3000, "0.0.0.0");
-      EOF
-
-      # 앱 실행 (ubuntu 유저 홈에서 실행)
-      node /home/ubuntu/app.js > /home/ubuntu/app.log 2>&1 &
-    `).toString("base64");
+    
+    const APP_USER_DATA = path.join(__dirname,"..", "script" ,"toytest-was.sh");
+    let userDataApp = fs.readFileSync(APP_USER_DATA, "utf-8");
+    userDataApp = userDataApp.replace("${dbEndpoint}", dbEndpoint);
+    userDataApp = Buffer.from(userDataApp).toString("base64");
 
     const app = await ec2Client.send(
       new RunInstancesCommand({
@@ -203,44 +176,11 @@ export async function deploy3TierRds(ec2Client, rdsClient, vpcInfo) {
     // -----------------------
     // 4. EC2 (Web) - Nginx Proxy
     // -----------------------
-    const userDataWeb = Buffer.from(`#!/bin/bash
-      set -e
 
-      # 시스템 업데이트
-      apt-get update -y
-      apt-get upgrade -y
-
-      # Nginx 설치
-      apt-get install -y nginx
-
-      # Nginx 자동 시작 등록 및 실행
-      systemctl enable nginx
-      systemctl start nginx
-
-      # Nginx Reverse Proxy 설정
-      cat <<EOF > /etc/nginx/sites-available/app.conf
-      server {
-          listen 80;
-          location / {
-              proxy_pass http://${appIP}:3000;
-              proxy_http_version 1.1;
-              proxy_set_header Upgrade \$http_upgrade;
-              proxy_set_header Connection 'upgrade';
-              proxy_set_header Host \$host;
-              proxy_cache_bypass \$http_upgrade;
-          }
-      }
-      EOF
-
-      # 설정 활성화
-      ln -s /etc/nginx/sites-available/app.conf /etc/nginx/sites-enabled/app.conf
-
-      # 기본 설정 삭제 (충돌 방지)
-      rm -f /etc/nginx/sites-enabled/default
-
-      # Nginx 설정 테스트 및 재시작
-      nginx -t && systemctl reload nginx
-    `).toString("base64");
+    const WEB_USER_DATA = path.join(__dirname,"..", "script" ,"toytest-web.sh");
+    let userDataWeb = fs.readFileSync(WEB_USER_DATA, "utf-8");
+    userDataWeb = userDataWeb.replace("${appIP}", appIP);
+    userDataWeb = Buffer.from(userDataWeb).toString("base64");
 
     const web = await ec2Client.send(
       new RunInstancesCommand({
@@ -275,15 +215,15 @@ export async function deploy3TierRds(ec2Client, rdsClient, vpcInfo) {
     // -----------------------
     const diagram = `
     ┌───────────────┐
-    │   Web (EC2)   │ → http://${webIP}
+    │   Web (EC2)   │ → http://${webIP}  // publicSubnet
     └───────▲───────┘
             │ (proxy)
     ┌───────┴───────┐
-    │   App (EC2)   │ → ${appIP}:3000
+    │   App (EC2)   │ → ${appIP}:8080  //privateSubnet
     └───────▲───────┘
             │
     ┌───────┴───────┐
-    │   DB (RDS)    │ → ${dbEndpoint}:3306
+    │   DB (RDS)    │ → ${dbEndpoint}:3306  // dbSubnet
     └───────────────┘
     `
     console.log(diagram);

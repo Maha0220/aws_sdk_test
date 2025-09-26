@@ -9,7 +9,9 @@
   "author": "Your Name",
   "license": "Apache-2.0",
   "dependencies": {
+    "@aws-sdk/client-auto-scaling": "^3.896.0",
     "@aws-sdk/client-ec2": "^3.893.0",
+    "@aws-sdk/client-elastic-load-balancing-v2": "^3.896.0",
     "@aws-sdk/client-rds": "^3.894.0",
     "@aws-sdk/client-s3": "^3.420.0",
     "dotenv": "^17.2.2"

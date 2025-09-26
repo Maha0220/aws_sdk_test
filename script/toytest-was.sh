@@ -24,16 +24,16 @@ wget -P tomcat/lib https://repo1.maven.org/maven2/mysql/mysql-connector-java/8.0
 sh tomcat/bin/startup.sh
 
 # JSP 파일 자동 생성
-cat <<EOF > /root/tomcat/webapps/ROOT/index.jsp
+cat <<'EOF' > /root/tomcat/webapps/ROOT/index.jsp
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
 <%@ page import="java.sql.*" %>
 <h1>DB</h1>
 <%
     Connection conn = null;
     try {
-        String Url = "jdbc:mysql://10.10.3.191:3306/amidb";
-        String Id = "amiuser";
-        String Pass = "1234";
+        String Url = "jdbc:mysql://${dbEndpoint}/testdb";
+        String Id = "admin";
+        String Pass = "password1234!";
 
         Class.forName("com.mysql.jdbc.Driver");
         conn = DriverManager.getConnection(Url, Id, Pass);
@@ -55,7 +55,7 @@ wget https://s3.amazonaws.com/amazoncloudwatch-agent/ubuntu/amd64/latest/amazon-
 dpkg -i amazon-cloudwatch-agent.deb
 
 # 설정 파일 생성
-cat <<EOF > /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
+cat <<'EOF' > /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
 {
   "metrics": {
     "namespace": "CWAgent",
