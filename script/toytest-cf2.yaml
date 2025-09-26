@@ -1,0 +1,347 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "3-Tier Web-WAS-DB with CloudFormation, NAT Gateway, dynamic IP references"
+
+Parameters:
+  KeyName:
+    Type: AWS::EC2::KeyPair::KeyName
+    Description: "EC2 KeyPair name for SSH access"
+
+Resources:
+
+  # ---------------------
+  # VPC & Subnets
+  # ---------------------
+  MyVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.11.0.0/16
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: "MyVPC"
+
+  PublicSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref MyVPC
+      CidrBlock: 10.11.1.0/24
+      AvailabilityZone: !Select [0, !GetAZs '']
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: "PublicSubnetA"
+
+  PublicSubnetC:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref MyVPC
+      CidrBlock: 10.11.2.0/24
+      AvailabilityZone: !Select [1, !GetAZs '']
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: "PublicSubnetC"
+
+  PrivateSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref MyVPC
+      CidrBlock: 10.11.3.0/24
+      AvailabilityZone: !Select [0, !GetAZs '']
+      Tags:
+        - Key: Name
+          Value: "PrivateSubnetA"
+
+  PrivateSubnetC:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref MyVPC
+      CidrBlock: 10.11.4.0/24
+      AvailabilityZone: !Select [1, !GetAZs '']
+      Tags:
+        - Key: Name
+          Value: "PrivateSubnetC"
+
+  # ---------------------
+  # Internet Gateway & Route Tables
+  # ---------------------
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+
+  AttachGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref MyVPC
+      InternetGatewayId: !Ref InternetGateway
+
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref MyVPC
+
+  PublicRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  PublicSubnetARouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnetA
+      RouteTableId: !Ref PublicRouteTable
+
+  PublicSubnetCRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnetC
+      RouteTableId: !Ref PublicRouteTable
+
+  # ---------------------
+  # Security Groups
+  # ---------------------
+  SGDB:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: "DB security group"
+      VpcId: !Ref MyVPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 3306
+          ToPort: 3306
+          CidrIp: 10.11.3.0/24
+        - IpProtocol: -1
+          FromPort: 0
+          ToPort: 65535
+          CidrIp: 0.0.0.0/0
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          FromPort: -1
+          ToPort: -1
+          CidrIp: 0.0.0.0/0
+
+  SGWAS:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: "WAS security group"
+      VpcId: !Ref MyVPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 8080
+          ToPort: 8080
+          CidrIp: 10.11.3.0/24
+        - IpProtocol: -1
+          FromPort: 0
+          ToPort: 65535
+          CidrIp: 0.0.0.0/0
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: 3306
+          ToPort: 3306
+          CidrIp: 10.11.3.0/24
+        - IpProtocol: -1
+          FromPort: -1
+          ToPort: -1
+          CidrIp: 0.0.0.0/0
+
+  SGWeb:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: "Web security group"
+      VpcId: !Ref MyVPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: -1
+          FromPort: 0
+          ToPort: 65535
+          CidrIp: 0.0.0.0/0
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          FromPort: -1
+          ToPort: -1
+          CidrIp: 0.0.0.0/0
+
+  # ---------------------
+  # NAT Gateway
+  # ---------------------
+  NatEIP:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+
+  NatGateway:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt NatEIP.AllocationId
+      SubnetId: !Ref PublicSubnetA
+      Tags:
+        - Key: Name
+          Value: "Nat-Gateway"
+
+  # Private Route Tables
+  PrivateRouteTableA:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref MyVPC
+      Tags:
+        - Key: Name
+          Value: "PrivateRouteTableA"
+
+  PrivateRouteTableC:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref MyVPC
+      Tags:
+        - Key: Name
+          Value: "PrivateRouteTableC"
+
+  PrivateRouteA:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PrivateRouteTableA
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGateway
+
+  PrivateRouteC:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PrivateRouteTableC
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGateway
+
+  PrivateSubnetARouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnetA
+      RouteTableId: !Ref PrivateRouteTableA
+
+  PrivateSubnetCRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnetC
+      RouteTableId: !Ref PrivateRouteTableC
+
+  # ---------------------
+  # EC2 Instances
+  # ---------------------
+  DBInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: t3.micro
+      KeyName: !Ref KeyName
+      ImageId: ami-00e73adb2e2c80366
+      SubnetId: !Ref PrivateSubnetA
+      SecurityGroupIds: [!Ref SGDB]
+      Tags:
+        - Key: Name
+          Value: "DB-Instance"
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          set -ex
+          until ping -c1 archive.ubuntu.com &>/dev/null; do sleep 5; done
+          while fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1; do sleep 5; done
+          apt update -y
+          apt install -y mariadb-server wget unzip
+          sed -i "s/^bind-address\s*=.*$/bind-address = 0.0.0.0/" /etc/mysql/mariadb.conf.d/50-server.cnf    # MariaDB bind-address 변경 (0.0.0.0 허용)
+          systemctl enable --now mariadb
+          systemctl restart mariadb
+          mysql -u root <<EOF
+          CREATE DATABASE IF NOT EXISTS amidb;
+          GRANT ALL PRIVILEGES ON amidb.* TO 'amiuser'@'%' IDENTIFIED BY '1234';
+          FLUSH PRIVILEGES;
+          EOF
+
+  WASInstance:
+    Type: AWS::EC2::Instance
+    DependsOn: DBInstance
+    Properties:
+      InstanceType: t3.micro
+      KeyName: !Ref KeyName
+      ImageId: ami-00e73adb2e2c80366
+      SubnetId: !Ref PrivateSubnetC
+      SecurityGroupIds: [!Ref SGWAS]
+      Tags:
+        - Key: Name
+          Value: "WAS-Instance"
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          set -ex
+          until ping -c1 archive.ubuntu.com &>/dev/null; do sleep 5; done
+          while fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1; do sleep 5; done
+          apt update -y
+          apt install -y openjdk-11-jdk unzip wget
+          cd /root
+          wget https://dlcdn.apache.org/tomcat/tomcat-10/v10.1.46/bin/apache-tomcat-10.1.46.zip
+          unzip apache-tomcat-10.1.46.zip
+          mv apache-tomcat-10.1.46 tomcat
+          chmod 777 -R tomcat
+          wget -P tomcat/lib https://repo1.maven.org/maven2/mysql/mysql-connector-java/8.0.23/mysql-connector-java-8.0.23.jar
+          cat <<'EOF' > /root/tomcat/webapps/ROOT/index.jsp
+          <%@ page language="java" contentType="text/html; charset=UTF-8"%>
+          <%@ page import="java.sql.*" %>
+          <h1>DB</h1>
+          <%
+              Connection conn = null;
+              try {
+                  String Url = "jdbc:mysql://${DBInstance.PrivateIp}:3306/amidb";
+                  String Id = "amiuser";
+                  String Pass = "1234";
+                  Class.forName("com.mysql.cj.jdbc.Driver");
+                  conn = DriverManager.getConnection(Url, Id, Pass);
+                  out.println("was-db Connection Success!");
+              } catch(Exception e) {
+                   java.io.StringWriter sw = new java.io.StringWriter();
+                  e.printStackTrace(new java.io.PrintWriter(sw));
+                  out.println("DB 연결 실패: " + sw.toString().replaceAll("\n", "<br/>"));
+              } finally {
+                  if(conn != null) try { conn.close(); } catch(Exception e) {}
+              }
+          %>
+          EOF
+          if lsof -i :8080 >/dev/null 2>&1; then fuser -k 8080/tcp; fi
+          /root/tomcat/bin/startup.sh
+
+  WebInstance:
+    Type: AWS::EC2::Instance
+    DependsOn: WASInstance
+    Properties:
+      InstanceType: t3.micro
+      KeyName: !Ref KeyName
+      ImageId: ami-00e73adb2e2c80366
+      SubnetId: !Ref PublicSubnetA
+      SecurityGroupIds: [!Ref SGWeb]
+      Tags:
+        - Key: Name
+          Value: "Web-Instance"
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          set -ex
+          apt update -y
+          apt install -y nginx wget unzip
+          rm -f /etc/nginx/sites-available/defaulte
+          cat <<'EOF' > /etc/nginx/sites-available/default
+          server {
+              listen 80;
+              server_name _;
+              location = /jsp { return 301 /jsp/; }
+              location /jsp/ {
+                  proxy_pass http://${WASInstance.PrivateIp}:8080/;
+                  proxy_set_header Host ${WASInstance.PrivateIp};
+                  proxy_set_header X-Real-IP \$remote_addr;
+                  proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+                  proxy_set_header X-Forwarded-Proto \$scheme;
+                  proxy_redirect off;
+              }
+          }
+          EOF
+          nginx -t
+          systemctl enable --now nginx
+          systemctl restart nginx
