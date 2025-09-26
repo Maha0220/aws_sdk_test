@@ -15,9 +15,9 @@ systemctl start mariadb
 
 # DB 및 사용자 생성
 mysql -u root <<EOF
-CREATE DATABASE IF NOT EXISTS amidb;
-GRANT ALL PRIVILEGES ON amidb.* TO 'amiuser'@'%' IDENTIFIED BY '1234';
-GRANT ALL PRIVILEGES ON amidb.* TO 'amiuser'@'localhost' IDENTIFIED BY '1234';
+CREATE DATABASE IF NOT EXISTS testdb;
+GRANT ALL PRIVILEGES ON testdb.* TO 'admin'@'%' IDENTIFIED BY 'password1234!';
+GRANT ALL PRIVILEGES ON testdb.* TO 'admin'@'localhost' IDENTIFIED BY 'password1234!';
 FLUSH PRIVILEGES;
 EOF
 

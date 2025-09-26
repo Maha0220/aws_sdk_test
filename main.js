@@ -56,7 +56,7 @@ function loadAscii(name) {
     const asciiPath = path.join(__dirname, "ascii", `${name}.txt`);
     return fs.readFileSync(asciiPath, "utf-8");
   } catch {
-    return "fxxk";
+    return "";
   }
 }
 
@@ -107,7 +107,7 @@ const actions = {
     const art = await create3TierRds(getConfig());
     console.log("\n✅ 3-Tier RDS 아키텍처 설정 완료!");
     setConfig(art);
-    await new Promise(r => setTimeout(r, 1600));
+    await new Promise(r => setTimeout(r, 3600));
   }
 };
 
@@ -144,7 +144,8 @@ async function play(sceneKey) {
     const cfg = getConfig();
     console.log(`현재 VPC ID: ${cfg.vpcId}`);
     if (cfg.type) {
-      console.log(`구성된 인프라: ${cfg.type}`);    
+      console.log(`구성된 인프라: ${cfg.type}`);
+      console.log(cfg.diagram);
     }
     // console.log(`퍼블릭 서브넷: ${cfg.publicSubnets}`);
     // console.log(`프라이빗 서브넷: ${cfg.privateSubnets}`);

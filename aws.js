@@ -127,10 +127,3 @@ export const setAwsVpc = async () => {
 export const create3TierRds = async (vpcInfo) => {
   return await deploy3TierRds(ec2Client, rdsClient, vpcInfo);
 }
-
-// Call a function if this file was run directly. This allows the file
-// to be runnable without running on import.
-// import { fileURLToPath } from "node:url";
-// if (process.argv[1] === fileURLToPath(import.meta.url)) {
-//   s3test();
-// }

@@ -6,7 +6,7 @@
       { "key": "1", "text": "같이 논다", "action": "playAnimation", "next": "play" },
       { "key": "2", "text": "간식 주기", "action": "feedSnack", "next": "snack" },
       { "key": "3", "text": "AWS 3-tier 구성하기", "next": "main" },
-      { "key": "4", "text": "모험 끝내기", "next": "end" }
+      { "key": "4", "text": "끝내기", "next": "end" }
     ]
   },
   "main": {
