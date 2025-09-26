@@ -13,7 +13,8 @@ import {
   AssociateRouteTableCommand,
   AllocateAddressCommand,
   CreateNatGatewayCommand,
-  DescribeNatGatewaysCommand
+  DescribeNatGatewaysCommand,
+  ModifySubnetAttributeCommand
 } from "@aws-sdk/client-ec2";
 
 // NAT 게이트웨이 상태 확인
@@ -55,6 +56,7 @@ export async function setVPC(ec2Client) {
     // 4️⃣ 퍼블릭 & 프라이빗 서브넷 + 라우팅 테이블 생성
     const publicSubnets = [];
     const privateSubnets = [];
+    const dbSubnets = [];
 
     for (let i = 0; i < availabilityZones.length; i++) {
       // 퍼블릭 서브넷
@@ -65,6 +67,13 @@ export async function setVPC(ec2Client) {
         TagSpecifications: [{ ResourceType: "subnet", Tags: [{ Key: "Name", Value: `PublicSubnet-${i+1}` }] }]
       }));
       publicSubnets.push(pubSubnet.Subnet.SubnetId);
+      //ip 자동 할당 활성화
+      await ec2Client.send(
+        new ModifySubnetAttributeCommand({
+          SubnetId: pubSubnet.Subnet.SubnetId,
+          MapPublicIpOnLaunch: { Value: true },
+        })
+      );  
       console.log(`퍼블릭 서브넷 생성: ${pubSubnet.Subnet.SubnetId}`);
 
       const pubRT = await ec2Client.send(new CreateRouteTableCommand({
@@ -78,12 +87,22 @@ export async function setVPC(ec2Client) {
       // 프라이빗 서브넷
       const privSubnet = await ec2Client.send(new CreateSubnetCommand({
         VpcId: vpcId,
-        CidrBlock: `10.0.${i+100}.0/24`, // 프라이빗은 100+ 영역
+        CidrBlock: `10.0.${i+10}.0/24`, // 프라이빗은 10+ 영역
         AvailabilityZone: availabilityZones[i],
         TagSpecifications: [{ ResourceType: "subnet", Tags: [{ Key: "Name", Value: `PrivateSubnet-${i+1}` }] }]
       }));
       privateSubnets.push(privSubnet.Subnet.SubnetId);
       console.log(`프라이빗 서브넷 생성: ${privSubnet.Subnet.SubnetId}`);
+
+      //db 서브넷
+      const dbSubnet = await ec2Client.send(new CreateSubnetCommand({
+        VpcId: vpcId,
+        CidrBlock: `10.0.${i+20}.0/24`, // 프라이빗은 10+ 영역
+        AvailabilityZone: availabilityZones[i],
+        TagSpecifications: [{ ResourceType: "subnet", Tags: [{ Key: "Name", Value: `DBSubnet-${i+1}` }] }]
+      }));
+      dbSubnets.push(dbSubnet.Subnet.SubnetId);
+      console.log(`DB 서브넷 생성: ${dbSubnet.Subnet.SubnetId}`);
     }
 
     // 5️⃣ NAT 게이트웨이 생성 (첫 번째 퍼블릭 서브넷 사용)
@@ -104,11 +123,12 @@ export async function setVPC(ec2Client) {
       }));
       await ec2Client.send(new CreateRouteCommand({ RouteTableId: privRT.RouteTable.RouteTableId, DestinationCidrBlock: "0.0.0.0/0", NatGatewayId: natGatewayId }));
       await ec2Client.send(new AssociateRouteTableCommand({ RouteTableId: privRT.RouteTable.RouteTableId, SubnetId: privateSubnets[i] }));
+      await ec2Client.send(new AssociateRouteTableCommand({ RouteTableId: privRT.RouteTable.RouteTableId, SubnetId: dbSubnets[i] }));
       console.log(`프라이빗 라우팅 테이블 연결 완료: ${privateSubnets[i]}`);
     }
 
     console.log("✅ 멀티 AZ VPC 환경 구축 완료!");
-    return { vpcId, publicSubnets, privateSubnets };
+    return { vpcId, publicSubnets, privateSubnets, dbSubnets };
   } catch (err) {
     console.error("오류 발생:", err);
   }

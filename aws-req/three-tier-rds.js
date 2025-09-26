@@ -1,5 +1,4 @@
 import {
-  EC2Client,
   RunInstancesCommand,
   DescribeInstancesCommand,
   waitUntilInstanceRunning,
@@ -8,40 +7,51 @@ import {
 } from "@aws-sdk/client-ec2";
 
 import {
-  RDSClient,
   CreateDBInstanceCommand,
   DescribeDBInstancesCommand,
   waitUntilDBInstanceAvailable,
+  CreateDBSubnetGroupCommand,
 } from "@aws-sdk/client-rds";
 
 import * as dotenv from "dotenv";
 dotenv.config();
 
-const ec2Client = new EC2Client({
-  region: process.env.AWS_REGION,
-  credentials: {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-  },
-});
+// const ec2Client = new EC2Client({
+//   region: process.env.AWS_REGION,
+//   credentials: {
+//     accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+//     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+//   },
+// });
 
-const rds = new RDSClient({
-  region: process.env.AWS_REGION,
-  credentials: {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-  },
-});
-
-async function deploy3Tier(vpcId) {
+export async function deploy3TierRds(ec2Client, rdsClient, vpcInfo) {
   try {
 
-    const DBSubnetGroupName = 'tom-vpc-subg-db';
-    const ImageId = "ami-00e73adb2e2c80366";
-    const KeyName = "aws11";
-    const WebSubnetId = "subnet-0c62af7fe9589f168";
-    const AppSubnetId = "subnet-0c77ee4e90d5712bb";
-
+    const ImageId = "ami-00e73adb2e2c80366";// TODO 선택 가능하게 하기
+    const KeyName = process.env.AWS_KEY_NAME;
+    const WebSubnetId = vpcInfo.publicSubnets[0];
+    const AppSubnetId = vpcInfo.privateSubnets[0];
+    const subnetIds = vpcInfo.dbSubnets;
+    
+    // -----------------------
+    // 0. DB 서브넷 그룹 생성
+    // -----------------------
+    
+    const dbSubnetGroupObj = await rdsClient.send(
+      new CreateDBSubnetGroupCommand({
+        DBSubnetGroupName: "my-db-subnet-group", // 고유 이름
+        DBSubnetGroupDescription: "Subnet group for RDS DB in private subnets",
+        SubnetIds: subnetIds, // 프라이빗 서브넷 ID 배열
+        Tags: [
+          {
+            Key: "Name",
+            Value: "MyDBSubnetGroup",
+          },
+        ],
+      })
+    );
+    const DBSubnetGroupName = dbSubnetGroupObj.DBSubnetGroup.DBSubnetGroupName;
+    console.log("DB Subnet Group 생성:", DBSubnetGroupName);
 
     // -----------------------
     // 1. 보안그룹 생성
@@ -51,21 +61,21 @@ async function deploy3Tier(vpcId) {
       new CreateSecurityGroupCommand({
         GroupName: "Web-SG",
         Description: "Allow HTTP/HTTPS",
-        VpcId: vpcId,
+        VpcId: vpcInfo.vpcId,
       })
     );
     const appSg = await ec2Client.send(
       new CreateSecurityGroupCommand({
         GroupName: "App-SG",
         Description: "Allow from Web-SG",
-        VpcId: vpcId,
+        VpcId: vpcInfo.vpcId,
       })
     );
     const dbSg = await ec2Client.send(
       new CreateSecurityGroupCommand({
         GroupName: "DB-SG",
         Description: "Allow from App-SG",
-        VpcId: vpcId,
+        VpcId: vpcInfo.vpcId,
       })
     );
 
@@ -84,6 +94,7 @@ async function deploy3Tier(vpcId) {
         GroupId: appSg.GroupId,
         IpPermissions: [
           { IpProtocol: "tcp", FromPort: 8080, ToPort: 8080, UserIdGroupPairs: [{ GroupId: webSg.GroupId }] },
+          { IpProtocol: "tcp", FromPort: 3000, ToPort: 3000, UserIdGroupPairs: [{ GroupId: webSg.GroupId }] },
           { IpProtocol: "tcp", FromPort: 22, ToPort: 22, IpRanges: [{ CidrIp: "0.0.0.0/0" }] },
         ],
       })
@@ -103,7 +114,7 @@ async function deploy3Tier(vpcId) {
     // 2. RDS (DB) 생성
     // -----------------------
     const dbId = "mydb-" + Date.now();
-    await rds.send(
+    await rdsClient.send(
       new CreateDBInstanceCommand({
         DBInstanceIdentifier: dbId,
         AllocatedStorage: 20,
@@ -118,8 +129,8 @@ async function deploy3Tier(vpcId) {
     );
     console.log("✅ DB 생성 시작:", dbId);
     console.log("⏳ Waiting for RDS to be available...");
-    await waitUntilDBInstanceAvailable({ client: rds, maxWaitTime: 600 }, { DBInstanceIdentifier: dbId });
-    const dbInfo = await rds.send(new DescribeDBInstancesCommand({ DBInstanceIdentifier: dbId }));
+    await waitUntilDBInstanceAvailable({ client: rdsClient, maxWaitTime: 600 }, { DBInstanceIdentifier: dbId });
+    const dbInfo = await rdsClient.send(new DescribeDBInstancesCommand({ DBInstanceIdentifier: dbId }));
     const dbEndpoint = dbInfo.DBInstances[0].Endpoint.Address;
     console.log("✅ DB Endpoint:", dbEndpoint);
 
@@ -161,7 +172,7 @@ async function deploy3Tier(vpcId) {
           }
         });
       });
-      server.listen(3000);
+      server.listen(3000, "0.0.0.0");
       EOF
 
       # 앱 실행 (ubuntu 유저 홈에서 실행)
@@ -186,6 +197,8 @@ async function deploy3Tier(vpcId) {
     await waitUntilInstanceRunning({ client: ec2Client, maxWaitTime: 300 }, { InstanceIds: [appId] });
     const appInfo = await ec2Client.send(new DescribeInstancesCommand({ InstanceIds: [appId] }));
     const appIP = appInfo.Reservations[0].Instances[0].PrivateIpAddress;
+    console.log("✅ App 서버 Private IP:", appIP);
+    console.log("✅ App 서버 생성 완료");
 
     // -----------------------
     // 4. EC2 (Web) - Nginx Proxy
@@ -246,12 +259,21 @@ async function deploy3Tier(vpcId) {
 
     await waitUntilInstanceRunning({ client: ec2Client, maxWaitTime: 300 }, { InstanceIds: [webId] });
     const webInfo = await ec2Client.send(new DescribeInstancesCommand({ InstanceIds: [webId] }));
-    const webIP = webInfo.Reservations[0].Instances[0].PublicIpAddress;
+    let webIP = webInfo.Reservations[0].Instances[0].PublicIpAddress;
+
+    // if (!webIP) {
+    //   console.log("Public IP 아직 할당 안됨, 10초 후 재조회");
+    //   await new Promise(r => setTimeout(r, 5000)); // 5초 대기
+    //   const retryInfo = await ec2.send(new DescribeInstancesCommand({ InstanceIds: [webId] }));
+    //   webIP = retryInfo.Reservations[0].Instances[0].PublicIpAddress;
+    // }
+    console.log("✅ Web 서버 Public IP:", webIP);
+    console.log("✅ 3-Tier 아키텍처 배포 완료");
 
     // -----------------------
     // 5. 아키텍처 출력
     // -----------------------
-    console.log(`
+    const diagram = `
     ┌───────────────┐
     │   Web (EC2)   │ → http://${webIP}
     └───────▲───────┘
@@ -263,11 +285,13 @@ async function deploy3Tier(vpcId) {
     ┌───────┴───────┐
     │   DB (RDS)    │ → ${dbEndpoint}:3306
     └───────────────┘
-    `);
+    `
+    console.log(diagram);
 
+    return { type: "3-tier-rds", webIP, appIP, dbEndpoint, diagram };
   } catch (err) {
     console.error("❌ Error:", err);
   }
 }
 
-deploy3Tier('vpc-043958a1350e3297a').catch(console.error); // 👉 VPC ID 넣기
+// deploy3TierRds('vpc-043958a1350e3297a').catch(console.error); // 👉 VPC ID 넣기
