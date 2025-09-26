@@ -3,6 +3,8 @@ import { createInterface } from "node:readline/promises";
 import dotenv from 'dotenv';
 import { setVPC } from './aws-req/set-vpc.js';
 import { deploy3TierRds } from './aws-req/three-tier-rds.js';
+import { deploy3TierEc2 } from './aws-req/three-tier-ec2.js';
+import { deployASWeb } from './aws-req/autoscailing.js';
 dotenv.config();
 
 import {
@@ -21,7 +23,12 @@ import {
 import {
   RDSClient,
 } from "@aws-sdk/client-rds";
-
+import {
+  ElasticLoadBalancingV2Client,
+} from "@aws-sdk/client-elastic-load-balancing-v2";
+import {
+  AutoScalingClient,
+} from "@aws-sdk/client-auto-scaling";
 // configuration for AWS SDK
 
 const region = process.env.AWS_REGION;
@@ -35,6 +42,8 @@ const configuration = { region, credentials };
 const s3Client = new S3Client(configuration);
 const ec2Client = new EC2Client(configuration);
 const rdsClient = new RDSClient(configuration);
+const elbClient = new ElasticLoadBalancingV2Client(configuration);
+const asClient = new AutoScalingClient(configuration);
 //function
 
 export async function s3test() {
@@ -127,3 +136,12 @@ export const setAwsVpc = async () => {
 export const create3TierRds = async (vpcInfo) => {
   return await deploy3TierRds(ec2Client, rdsClient, vpcInfo);
 }
+
+export const create3TierEc2 = async (vpcInfo) => {
+  return await deploy3TierEc2(ec2Client, vpcInfo);
+}
+
+export const createASWeb = async (vpcInfo) => {
+  return await deployASWeb(ec2Client, elbClient, asClient, vpcInfo);
+}
+

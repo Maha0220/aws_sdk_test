@@ -1,4 +1,8 @@
 #!/bin/bash
+
+# warning:
+# deprecated script
+
 set -e
 
 if [[ $EUID -ne 0 ]]; then
@@ -14,7 +18,7 @@ systemctl enable mariadb
 systemctl start mariadb
 
 # DB 및 사용자 생성
-mysql -u root <<EOF
+mysql -u root <<'EOF'
 CREATE DATABASE IF NOT EXISTS testdb;
 GRANT ALL PRIVILEGES ON testdb.* TO 'admin'@'%' IDENTIFIED BY 'password1234!';
 GRANT ALL PRIVILEGES ON testdb.* TO 'admin'@'localhost' IDENTIFIED BY 'password1234!';
@@ -34,7 +38,7 @@ wget https://s3.amazonaws.com/amazoncloudwatch-agent/ubuntu/amd64/latest/amazon-
 dpkg -i amazon-cloudwatch-agent.deb
 
 # 설정 파일 생성
-cat <<EOF > /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
+cat <<'EOF' > /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
 {
   "metrics": {
     "namespace": "CWAgent",

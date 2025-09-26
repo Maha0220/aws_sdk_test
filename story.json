@@ -14,9 +14,9 @@
     "ascii": "cat-star",
     "options": [
       { "key": "1", "text": "vpc 구성", "action": "setAwsVpc", "next": "main" },
-      { "key": "2", "text": "3-tier 구성하기 (ec2 db)", "action": "feedSnack", "next": "main" },
+      { "key": "2", "text": "3-tier 구성하기 (ec2 db)", "action": "setAws3TierEc2", "next": "main" },
       { "key": "3", "text": "3-tier 구성하기 (rds)", "action": "setAws3TierRds", "next": "main" },
-      { "key": "4", "text": "auto scaling 구성하기", "action": "feedSnack", "next": "main" },
+      { "key": "4", "text": "auto scaling 구성하기", "action": "setAwsASWeb", "next": "main" },
       { "key": "5", "text": "DB 마이그레이션 (ec2 to rds)", "action": "feedSnack", "next": "main" },
       { "key": "6", "text": "끝내기", "next": "end" }
     ]

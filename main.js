@@ -2,7 +2,7 @@ import fs from "fs";
 import path from "path";
 import readline from "readline";
 import { fileURLToPath } from "url";
-import { setAwsVpc, create3TierRds } from "./aws.js";
+import { setAwsVpc, create3TierRds, create3TierEc2, createASWeb } from "./aws.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -106,6 +106,32 @@ const actions = {
     }
     const art = await create3TierRds(getConfig());
     console.log("\n✅ 3-Tier RDS 아키텍처 설정 완료!");
+    setConfig(art);
+    await new Promise(r => setTimeout(r, 3600));
+  },
+  setAws3TierEc2: async () => {
+    console.clear();
+    console.log(loadAscii("cat")); 
+    if(getConfig().type) {
+      console.log("\n✅ 이미 아키텍쳐가 설정되어 있습니다!");
+      await new Promise(r => setTimeout(r, 800));
+      return
+    }
+    const art = await create3TierEc2(getConfig());
+    console.log("\n✅ 3-Tier EC2 DB 아키텍처 설정 완료!");
+    setConfig(art);
+    await new Promise(r => setTimeout(r, 3600));
+  },
+  setAwsASWeb: async () => {
+    console.clear();
+    console.log(loadAscii("cat"));
+    if(getConfig().type) {
+      console.log("\n✅ 이미 아키텍쳐가 설정되어 있습니다!");
+      await new Promise(r => setTimeout(r, 800));
+      return
+    }
+    const art = await createASWeb(getConfig());
+    console.log("\n✅ Auto Scaling Web 아키텍처 설정 완료!");
     setConfig(art);
     await new Promise(r => setTimeout(r, 3600));
   }
