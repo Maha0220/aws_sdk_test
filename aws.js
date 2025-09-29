@@ -5,6 +5,7 @@ import { setVPC } from './aws-req/set-vpc.js';
 import { deploy3TierRds } from './aws-req/three-tier-rds.js';
 import { deploy3TierEc2 } from './aws-req/three-tier-ec2.js';
 import { deployASWeb } from './aws-req/autoscailing.js';
+import { migrateEC2ToRDS } from './aws-req/migrate.js';
 dotenv.config();
 
 import {
@@ -145,3 +146,6 @@ export const createASWeb = async (vpcInfo) => {
   return await deployASWeb(ec2Client, elbClient, asClient, vpcInfo);
 }
 
+export const migrateEC2RDS = async (vpcInfo) => {
+  return 0;
+}

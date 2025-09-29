@@ -37,7 +37,7 @@ export async function deploy3TierRds(ec2Client, rdsClient, vpcInfo) {
     const KeyName = process.env.AWS_KEY_NAME;
     const WebSubnetId = vpcInfo.publicSubnets[0];
     const AppSubnetId = vpcInfo.privateSubnets[0];
-    const subnetIds = vpcInfo.dbSubnets;
+    const dbSubnetIds = vpcInfo.dbSubnets;
     
     // -----------------------
     // 0. DB 서브넷 그룹 생성
@@ -47,7 +47,7 @@ export async function deploy3TierRds(ec2Client, rdsClient, vpcInfo) {
       new CreateDBSubnetGroupCommand({
         DBSubnetGroupName: "my-db-subnet-group", // 고유 이름
         DBSubnetGroupDescription: "Subnet group for RDS DB in private subnets",
-        SubnetIds: subnetIds, // 프라이빗 서브넷 ID 배열
+        SubnetIds: dbSubnetIds, // 프라이빗 서브넷 ID 배열
         Tags: [
           {
             Key: "Name",
@@ -228,7 +228,19 @@ export async function deploy3TierRds(ec2Client, rdsClient, vpcInfo) {
     `
     console.log(diagram);
 
-    return { type: "3-tier-rds", webIP, appIP, dbEndpoint, diagram };
+    return { 
+      type: "3-tier-rds", 
+      webIP, 
+      appIP, 
+      dbEndpoint, 
+      diagram,
+      webSgId: webSg.GroupId,
+      appSgId: appSg.GroupId,
+      dbSgId: dbSg.GroupId,
+      webId,
+      appId,
+      dbId
+    };
   } catch (err) {
     console.error("❌ Error:", err);
   }

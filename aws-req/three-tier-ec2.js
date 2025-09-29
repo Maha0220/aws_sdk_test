@@ -32,7 +32,6 @@ export async function deploy3TierEc2(ec2Client, vpcInfo) {
     const WebSubnetId = vpcInfo.publicSubnets[0];
     const AppSubnetId = vpcInfo.privateSubnets[0];
     const DBSubnetId = vpcInfo.dbSubnets[0];
-    const subnetIds = vpcInfo.dbSubnets;
     
     // -----------------------
     // 1. 보안그룹 생성
@@ -207,7 +206,19 @@ export async function deploy3TierEc2(ec2Client, vpcInfo) {
     `
     console.log(diagram);
 
-    return { type: "3-tier-ec2db", webIP, appIP, dbEndpoint, diagram };
+    return { 
+      type: "3-tier-ec2db", 
+      webIP, 
+      appIP, 
+      dbEndpoint, 
+      diagram, 
+      webSgId: webSg.GroupId,
+      appSgId: appSg.GroupId,
+      dbSgId: dbSg.GroupId,
+      webId,
+      appId,
+      dbId
+    };
   } catch (err) {
     console.error("❌ Error:", err);
   }
