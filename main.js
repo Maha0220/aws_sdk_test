@@ -208,4 +208,4 @@ async function play(sceneKey) {
 
 // ===== 게임 시작 =====
 console.clear();
-play("start");
+play("main");
